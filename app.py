@@ -31,7 +31,7 @@ def watermark(filepath, text, rotation=0, is_repeat=False, opacity=1):
 	else:
 		font_size = x
 
-	font = ImageFont.load_default()
+	font = ImageFont.truetype("fonts/arial.ttf", int(font_size/6))
 
 	# add watermark
 	draw.text((x, y), text, fill=(0, 0, 0), font=font, anchor='ms')
