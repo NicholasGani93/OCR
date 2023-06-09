@@ -1,9 +1,5 @@
 import os
-import urllib.request
 from flask import Flask, request, redirect, jsonify
-import json
-from json import JSONEncoder
-import logging
 from werkzeug.utils import secure_filename
 from PIL import Image, ImageDraw, ImageFont
 import base64
@@ -16,11 +12,6 @@ class ResponseBody:
 	def __init__(self, message=""):
 		self.message = message
 		self.image_result = None
-
-# subclass JSONEncoder
-class ResponseEncoder(JSONEncoder):
-        def default(self, o):
-            return o.__dict__
 
 def allowed_file(filename):
 	return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
