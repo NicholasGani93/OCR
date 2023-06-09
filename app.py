@@ -1,6 +1,7 @@
 import os
 from flask import Flask, request, redirect, jsonify
 from werkzeug.utils import secure_filename
+from werkzeug.exceptions import BadRequest
 from PIL import Image, ImageDraw, ImageFont
 import base64
 from io import BytesIO
@@ -43,7 +44,9 @@ app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
-os.mkdir(app.config['UPLOAD_FOLDER'])
+isExist = os.path.exists(app.config['UPLOAD_FOLDER'])
+if not isExist:
+	os.mkdir(app.config['UPLOAD_FOLDER'])
 
 @app.route('/')
 def index():
@@ -84,6 +87,13 @@ def upload_file():
 		resp = jsonify(ResponseBody('Allowed file types are txt, pdf, png, jpg, jpeg, gif').__dict__)
 		resp.status_code = 400
 		return resp
+	
+@app.errorhandler(BadRequest)
+def handle_bad_request(e):
+    return 'bad request!', 400
+
+# or, without the decorator
+app.register_error_handler(400, handle_bad_request)
 
 if __name__ == '__main__':
     app.run(debug=False)
