@@ -2,6 +2,7 @@ import os
 from flask import Flask, request, redirect, jsonify
 from werkzeug.utils import secure_filename
 from werkzeug.exceptions import BadRequest
+import urllib.request
 from PIL import Image, ImageDraw, ImageFont
 import base64
 from io import BytesIO
@@ -64,29 +65,35 @@ def upload_file():
 		resp.status_code = 400
 		return resp
 	# check if the post request has the file part
-	if 'file' not in request.files:
+	if 'file' not in request.files or 'image_url' not in request.form:
 		resp = jsonify(ResponseBody('No file part in the request').__dict__)
 		resp.status_code = 400
 		return resp
 	file = request.files['file']
-	if file.filename == '':
+	image_url = request.form['image_url']
+	if file.filename == '' or image_url == '':
 		resp = jsonify(ResponseBody('No file selected for uploading').__dict__)
 		resp.status_code = 400
 		return resp
+	result_image = None
 	if file and allowed_file(file.filename):
 		filename = secure_filename(file.filename)
 		fullpath = os.path.join(os.getcwd(),app.config['UPLOAD_FOLDER'],filename)
 		file.save(fullpath)
 		result_image = watermark(fullpath,watermark_text)
-		resp_body = ResponseBody('Success apply watermark')
-		resp_body.image_result = result_image.decode('utf-8')
-		resp = jsonify(resp_body.__dict__)
-		resp.status_code = 201
-		return resp
-	else:
-		resp = jsonify(ResponseBody('Allowed file types are txt, pdf, png, jpg, jpeg, gif').__dict__)
-		resp.status_code = 400
-		return resp
+	else :
+		filename = 'temp.jpg'
+		urllib.request.urlretrieve(image_url,filename)
+		result_image = watermark(filename,watermark_text)
+	# else:
+	# 	resp = jsonify(ResponseBody('Allowed file types are txt, pdf, png, jpg, jpeg, gif').__dict__)
+	# 	resp.status_code = 400
+	# 	return resp
+	resp_body = ResponseBody('Success apply watermark')
+	resp_body.image_result = result_image.decode('utf-8')
+	resp = jsonify(resp_body.__dict__)
+	resp.status_code = 201
+	return resp
 	
 @app.errorhandler(BadRequest)
 def handle_bad_request(e):
