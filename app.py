@@ -55,31 +55,53 @@ def index():
 
 @app.route('/watermark', methods=['POST'])
 def upload_file():
-	if 'watermark' not in request.form:
-		resp = jsonify(ResponseBody('No watermark in the request').__dict__)
-		resp.status_code = 400
-		return resp
-	watermark_text = request.form['watermark']
-	if watermark_text == '':
-		resp = jsonify(ResponseBody('Watermark cannot be empty').__dict__)
-		resp.status_code = 400
-		return resp
-	# check if the post request has the file part
-	if 'file' not in request.files and 'image_url' not in request.form:
-		resp = jsonify(ResponseBody('No file part in the request').__dict__)
-		resp.status_code = 400
-		return resp
 	file = None
-	if 'file' in request.files:
-		file = request.files['file']
-	image_url = ''
-	if 'image_url' in request.form:
-		image_url = request.form['image_url']
-	if (file == None or file.filename == '') and image_url == '':
-		resp = jsonify(ResponseBody('No file selected for uploading').__dict__)
-		resp.status_code = 400
-		return resp
 	result_image = None
+	image_url = ''
+	watermark_text = ''
+	if request.content_type.startswith('application/json'):
+		json_body = request.json
+		if 'watermark' not in json_body:
+			resp = jsonify(ResponseBody('No watermark in the request').__dict__)
+			resp.status_code = 400
+			return resp
+		watermark_text = json_body['watermark']
+		if watermark_text == '':
+			resp = jsonify(ResponseBody('Watermark cannot be empty').__dict__)
+			resp.status_code = 400
+			return resp
+		if 'image_url' not in json_body:
+			resp = jsonify(ResponseBody('No file part in the request').__dict__)
+			resp.status_code = 400
+			return resp
+		image_url = json_body['image_url']
+		if image_url == '':
+			resp = jsonify(ResponseBody('No base file send').__dict__)
+			resp.status_code = 400
+			return resp
+	elif(request.content_type.startswith("application/x-www-form-urlencoded")):
+		if 'watermark' not in request.form:
+			resp = jsonify(ResponseBody('No watermark in the request').__dict__)
+			resp.status_code = 400
+			return resp
+		watermark_text = request.form['watermark']
+		if watermark_text == '':
+			resp = jsonify(ResponseBody('Watermark cannot be empty').__dict__)
+			resp.status_code = 400
+			return resp
+		# check if the post request has the file part
+		if 'file' not in request.files and 'image_url' not in request.form:
+			resp = jsonify(ResponseBody('No file part in the request').__dict__)
+			resp.status_code = 400
+			return resp
+		if 'file' in request.files:
+			file = request.files['file']
+		if 'image_url' in request.form:
+			image_url = request.form['image_url']
+		if (file == None or file.filename == '') and image_url == '':
+			resp = jsonify(ResponseBody('No base file send').__dict__)
+			resp.status_code = 400
+			return resp
 	if image_url != '':
 		filename = 'temp.jpg'
 		urllib.request.urlretrieve(image_url,filename)
@@ -103,17 +125,17 @@ def upload_file():
 def handle_bad_request(e):
     return 'bad request!', 400
     
-@app.errorhandler(HTTPException)
-def handle_exception(e):
-	"""Return JSON instead of HTML for HTTP errors."""
-	# start with the correct headers and status code from the error
-	response = e.get_response()
-	# replace the body with JSON
-	resp_body = jsonify(ResponseBody('Internal Server error').__dict__)
-	resp_body.status_code = 500
-	response.data = resp_body
-	response.content_type = "application/json"
-	return response
+# @app.errorhandler(HTTPException)
+# def handle_exception(e):
+# 	"""Return JSON instead of HTML for HTTP errors."""
+# 	# start with the correct headers and status code from the error
+# 	response = e.get_response()
+# 	# replace the body with JSON
+# 	resp_body = jsonify(ResponseBody('Internal Server error').__dict__)
+# 	resp_body.status_code = 500
+# 	response.data = resp_body
+# 	response.content_type = "application/json"
+# 	return response
 
 # or, without the decorator
 app.register_error_handler(400, handle_bad_request)
