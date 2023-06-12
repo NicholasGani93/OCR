@@ -15,15 +15,25 @@ class ResponseBody:
 		self.message = message
 		self.image_result = None
 
+def isfloat(num):
+    try:
+        float(num)
+        return True
+    except ValueError:
+        return False
+    
 def allowed_file(filename):
 	return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def watermark(filepath, text, rotation=0, is_repeat=False, opacity=1):
-	original_image = Image.open(filepath)
-	watermark_image = original_image.copy()
-	draw = ImageDraw.Draw(watermark_image)
+def watermark(filepath, text, rotation=0, is_repeat=False, opacity=0.5):
+	try:
+		original_image = Image.open(filepath).convert("RGBA")
+	except ValueError:
+		return None
+	txt = Image.new('RGBA', original_image.size, (255,255,255,0))
+	draw = ImageDraw.Draw(txt)
 
-	w, h = watermark_image.size
+	w, h = original_image.size
 	x, y = int(w / 2), int(h / 2)
 	if x > y:
 		font_size = y
@@ -35,9 +45,10 @@ def watermark(filepath, text, rotation=0, is_repeat=False, opacity=1):
 	font = ImageFont.truetype("fonts/arial.ttf", int(font_size/6))
 
 	# add watermark
-	draw.text((x, y), text, fill=(0, 0, 0), font=font, anchor='ms')
+	draw.text((x, y), text, fill=(128, 128, 128, int(opacity*255)), font=font, anchor='ms')
+	combined = Image.alpha_composite(original_image, txt).convert('RGB')
 	im_file = BytesIO()
-	watermark_image.save(im_file, format="JPEG")
+	combined.save(im_file, format="JPEG")
 	im_bytes = im_file.getvalue()
 	return base64.b64encode(im_bytes)
 
@@ -59,6 +70,9 @@ def upload_file():
 	result_image = None
 	image_url = ''
 	watermark_text = ''
+	opacity = 0.5
+	rotation = 0
+	isrepeat = False
 	if request.content_type.startswith('application/json'):
 		json_body = request.json
 		if 'watermark' not in json_body:
@@ -79,6 +93,13 @@ def upload_file():
 			resp = jsonify(ResponseBody('No base file send').__dict__)
 			resp.status_code = 400
 			return resp
+		if 'opacity' in json_body:
+			try:
+				opacity = float(json_body['opacity'])
+			except ValueError:
+				resp = jsonify(ResponseBody('Opacity value must be float (0-1)').__dict__)
+				resp.status_code = 400
+				return resp
 	elif(request.content_type.startswith("application/x-www-form-urlencoded")):
 		if 'watermark' not in request.form:
 			resp = jsonify(ResponseBody('No watermark in the request').__dict__)
@@ -102,17 +123,28 @@ def upload_file():
 			resp = jsonify(ResponseBody('No base file send').__dict__)
 			resp.status_code = 400
 			return resp
+		if 'opacity' in request.form:
+			try:
+				opacity = float(request.form['opacity'])
+			except ValueError:
+				resp = jsonify(ResponseBody('Opacity value must be float (0-1)').__dict__)
+				resp.status_code = 400
+				return resp
 	if image_url != '':
 		filename = 'temp.jpg'
 		urllib.request.urlretrieve(image_url,filename)
-		result_image = watermark(filename,watermark_text)
+		result_image = watermark(filename,watermark_text,rotation=rotation,is_repeat=isrepeat,opacity=opacity)
 	elif file and allowed_file(file.filename):
 		filename = secure_filename(file.filename)
 		fullpath = os.path.join(os.getcwd(),app.config['UPLOAD_FOLDER'],filename)
 		file.save(fullpath)
-		result_image = watermark(fullpath,watermark_text)
+		result_image = watermark(filename,watermark_text,rotation=rotation,is_repeat=isrepeat,opacity=opacity)
 	else:
 		resp = jsonify(ResponseBody('Allowed file types are png, jpg, jpeg').__dict__)
+		resp.status_code = 400
+		return resp
+	if result_image == None:
+		resp = jsonify(ResponseBody('Cannot load image').__dict__)
 		resp.status_code = 400
 		return resp
 	resp_body = ResponseBody('Success apply watermark')
